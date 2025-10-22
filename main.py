@@ -1,33 +1,67 @@
-from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field, validator
+from typing import List, Optional
+
+from strategies import (
+    ShippingCostCalculator,
+    select_shipping_strategy,
+    select_discount_strategy,
+)
 
 
-app = FastAPI(title="Shipping Cost API", version="0.1.0")
+app = FastAPI(title="Shipping Cost API", version="1.0.0")
 
 
-class ShippingRequest(BaseModel):
-    weight: float = Field(..., ge=0, description="Package weight in kg")
-    distance: float = Field(..., ge=0, description="Shipping distance in km")
-    base_rate: float = Field(1.0, ge=0, description="Base rate per kg*km")
-    discount: float = Field(0.0, ge=0.0, le=1.0, description="Discount fraction 0-1")
+class Item(BaseModel):
+    id: int
+    weight_kg: float = Field(..., ge=0)
+    category: str
 
 
-class ShippingResponse(BaseModel):
-    cost: float
-    currency: str = "USD"
+class ShippingInput(BaseModel):
+    items: List[Item]
+    destination: str
+    coupon: Optional[str] = None
+
+    @validator("destination")
+    def validate_destination(cls, v: str) -> str:
+        allowed = {"local", "national", "international"}
+        if v is None:
+            raise ValueError("destination is required")
+        if v.lower() not in allowed:
+            raise ValueError("destination must be local, national, or international")
+        return v
 
 
-@app.post("/calculate-shipping", response_model=ShippingResponse)
-def calculate_shipping(payload: ShippingRequest) -> ShippingResponse:
-    """Calculate a simple shipping cost.
+class ShippingOutput(BaseModel):
+    base_cost: float
+    discount_applied: float
+    final_cost: float
 
-    This is a baseline implementation that multiplies weight, distance, and a
-    configurable base rate, then optionally applies a discount fraction.
 
-    The design intentionally keeps the core logic simple so strategies can be
-    plugged in later (see `strategies.py`).
+@app.post("/calculate-shipping", response_model=ShippingOutput)
+def calculate_shipping(payload: ShippingInput) -> ShippingOutput:
+    """Calculate shipping cost from a list of items, destination, and coupon.
+
+    Base cost is determined by destination strategy, using total weight.
+    Discount applied is determined by coupon strategy.
     """
-    gross = payload.weight * payload.distance * payload.base_rate
-    final = gross * (1 - payload.discount)
-    return ShippingResponse(cost=round(final, 2), currency="USD")
+    total_weight = sum(item.weight_kg for item in payload.items)
 
+    try:
+        shipping_strategy = select_shipping_strategy(payload.destination)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    discount_strategy = select_discount_strategy(payload.coupon)
+    calculator = ShippingCostCalculator(
+        shipping_strategy=shipping_strategy, discount_strategy=discount_strategy
+    )
+
+    base_cost, discount_applied, final_cost = calculator.compute(total_weight=total_weight)
+
+    return ShippingOutput(
+        base_cost=round(base_cost, 2),
+        discount_applied=round(discount_applied, 2),
+        final_cost=round(final_cost, 2),
+    )
