@@ -12,7 +12,7 @@ class TestShippingStrategies(unittest.TestCase):
     def test_local_shipping(self):
         strategy = LocalShippingStrategy()
         # Regla: 5.0 + (1.0 * kg)
-        self.assertEqual(strategy.calculate(10), 15.0) [cite: 2667]
+        self.assertEqual(strategy.calculate(10), 15.0)
         self.assertEqual(strategy.calculate(0), 5.0)
 
     def test_national_shipping(self):
