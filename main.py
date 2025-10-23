@@ -28,13 +28,18 @@ class ShippingResponse(BaseModel):
     final_cost: float = Field(..., example=12.75)
 
 
-# --- 2. "Fábricas" de Estrategias ---
+# --- 2. "Fábricas" de Estrategias (Refactorizado) ---
 # Diccionarios que mapean el string del JSON a nuestra clase de Estrategia
 
+# Instanciamos las estrategias una sola vez (Mejora de Copilot)
+LOCAL_SHIPPING = LocalShippingStrategy()
+NATIONAL_SHIPPING = NationalShippingStrategy()
+INTERNATIONAL_SHIPPING = InternationalShippingStrategy()
+
 SHIPPING_STRATEGIES = {
-    "local": LocalShippingStrategy(),
-    "national": NationalShippingStrategy(),
-    "international": InternationalShippingStrategy()
+    "local": LOCAL_SHIPPING,
+    "national": NATIONAL_SHIPPING,
+    "international": INTERNATIONAL_SHIPPING
 }
 
 DISCOUNT_STRATEGIES = {
@@ -56,8 +61,9 @@ async def calculate_shipping_cost(request: ShippingRequest):
     # 1. Calcular peso total
     total_weight = sum(item.weight_kg for item in request.items)
     
-    # 2. Seleccionar Estrategia de Envío
-    shipping_strategy = SHIPPING_STRATEGIES.get(request.destination, LocalShippingStrategy()) # Default a local si no se encuentra
+    # 2. Seleccionar Estrategia de Envío (Refactorizado)
+    # Usamos la constante LOCAL_SHIPPING como default (Mejora de Copilot)
+    shipping_strategy = SHIPPING_STRATEGIES.get(request.destination, LOCAL_SHIPPING)
     
     # 3. Seleccionar Estrategia de Descuento
     discount_strategy = DISCOUNT_STRATEGIES.get(request.coupon, NO_DISCOUNT) # Default a sin descuento

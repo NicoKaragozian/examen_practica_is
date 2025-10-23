@@ -1,6 +1,6 @@
 import unittest
 from fastapi.testclient import TestClient
-from main import app # Importamos la app de FastAPI
+from main import app
 
 class TestShippingAPI(unittest.TestCase):
     """
