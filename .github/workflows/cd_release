@@ -1,0 +1,26 @@
+name: CD Release Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*.*.*' # Se activa solo cuando pusheas un tag (ej. v1.0.0)
+
+jobs:
+  create-github-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Token automático de GitHub
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          body: |
+            Nuevo release generado automáticamente.
+          draft: false
+          prerelease: false
